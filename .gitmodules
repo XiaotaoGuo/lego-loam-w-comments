@@ -1,0 +1,4 @@
+[submodule "reference/lego-loam"]
+	path = reference/lego-loam
+	url = https://github.com/RobustFieldAutonomyLab/LeGO-LOAM.git
+	branch = master
