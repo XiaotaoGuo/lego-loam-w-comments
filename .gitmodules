@@ -2,3 +2,6 @@
 	path = reference/lego-loam
 	url = https://github.com/RobustFieldAutonomyLab/LeGO-LOAM.git
 	branch = master
+[submodule "reference/gtsam"]
+	path = reference/gtsam
+	url = https://github.com/borglab/gtsam.git
