@@ -169,7 +169,7 @@ public:
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
         // have "ring" channel in the cloud
-        if (useCloudRing == true){
+        if (useCloudRing == true){  /// 直接获得该点所处线索引
             pcl::fromROSMsg(*laserCloudMsg, *laserCloudInRing);
             if (laserCloudInRing->is_dense == false) {
                 ROS_ERROR("Point cloud is not in dense format, please remove NaN points first!");
@@ -199,8 +199,10 @@ public:
     void findStartEndAngle(){
         // start and end orientation of this cloud
         segMsg.startOrientation = -atan2(laserCloudIn->points[0].y, laserCloudIn->points[0].x);
+        // 将 [-pi, pi] -> [pi, 2pi]
         segMsg.endOrientation   = -atan2(laserCloudIn->points[laserCloudIn->points.size() - 1].y,
                                                      laserCloudIn->points[laserCloudIn->points.size() - 1].x) + 2 * M_PI;
+        // 处理 corner cases
         if (segMsg.endOrientation - segMsg.startOrientation > 3 * M_PI) {
             segMsg.endOrientation -= 2 * M_PI;
         } else if (segMsg.endOrientation - segMsg.startOrientation < M_PI)
@@ -226,14 +228,17 @@ public:
                 rowIdn = laserCloudInRing->points[i].ring;
             }
             else{
+                /// 通过计算激光束俯仰角结合垂直分辨率计算所处线的索引，这一步对不同传感器计算方式可能不同
                 verticalAngle = atan2(thisPoint.z, sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y)) * 180 / M_PI;
                 rowIdn = (verticalAngle + ang_bottom) / ang_res_y;
             }
             if (rowIdn < 0 || rowIdn >= N_SCAN)
                 continue;
 
+            /// 通过计算 yaw 获得水平角度，按水平分辨率计算在一圈扫描中的相对位置 -> [-180, 180]
             horizonAngle = atan2(thisPoint.x, thisPoint.y) * 180 / M_PI;
 
+            /// 以 90° 作为居中位置计算计算列索引，从左到右角度范围为： [-90, 270]
             columnIdn = -round((horizonAngle-90.0)/ang_res_x) + Horizon_SCAN/2;
             if (columnIdn >= Horizon_SCAN)
                 columnIdn -= Horizon_SCAN;
@@ -249,6 +254,7 @@ public:
 
             thisPoint.intensity = (float)rowIdn + (float)columnIdn / 10000.0;
 
+            // 利用行列索引标记处一个点在点云中的独特索引
             index = columnIdn  + rowIdn * Horizon_SCAN;
             fullCloud->points[index] = thisPoint;
             fullInfoCloud->points[index] = thisPoint;
@@ -276,7 +282,8 @@ public:
                     groundMat.at<int8_t>(i,j) = -1;
                     continue;
                 }
-                    
+
+                // 计算每一列相邻两个点连线的俯仰角，如果小于 10° 则认为是一个平面
                 diffX = fullCloud->points[upperInd].x - fullCloud->points[lowerInd].x;
                 diffY = fullCloud->points[upperInd].y - fullCloud->points[lowerInd].y;
                 diffZ = fullCloud->points[upperInd].z - fullCloud->points[lowerInd].z;
@@ -299,6 +306,8 @@ public:
                 }
             }
         }
+
+        // 只有检测到有订阅者才进行消息的发布
         if (pubGroundCloud.getNumSubscribers() != 0){
             for (size_t i = 0; i <= groundScanInd; ++i){
                 for (size_t j = 0; j < Horizon_SCAN; ++j){
@@ -319,10 +328,13 @@ public:
         int sizeOfSegCloud = 0;
         // extract segmented cloud for lidar odometry
         for (size_t i = 0; i < N_SCAN; ++i) {
-
+            
+            // 每一行激光点在数组中的起始索引
             segMsg.startRingIndex[i] = sizeOfSegCloud-1 + 5;
 
+            // 对每一行中的每一个点进行遍历
             for (size_t j = 0; j < Horizon_SCAN; ++j) {
+                // 只针对有标签/地面点
                 if (labelMat.at<int>(i,j) > 0 || groundMat.at<int8_t>(i,j) == 1){
                     // outliers that will not be used for optimization (always continue)
                     if (labelMat.at<int>(i,j) == 999999){
@@ -383,6 +395,7 @@ public:
         allPushedIndY[0] = col;
         int allPushedIndSize = 1;
         
+        // 利用 BFS 将周围距离较近的点归类
         while(queueSize > 0){
             // Pop point
             fromIndX = queueIndX[queueStartInd];
@@ -392,6 +405,7 @@ public:
             // Mark popped point
             labelMat.at<int>(fromIndX, fromIndY) = labelCount;
             // Loop through all the neighboring grids of popped grid
+            // 遍历上下左右四个方向的相邻点
             for (auto iter = neighborIterator.begin(); iter != neighborIterator.end(); ++iter){
                 // new index
                 thisIndX = fromIndX + (*iter).first;
@@ -413,13 +427,16 @@ public:
                 d2 = std::min(rangeMat.at<float>(fromIndX, fromIndY), 
                               rangeMat.at<float>(thisIndX, thisIndY));
 
-                if ((*iter).first == 0)
-                    alpha = segmentAlphaX;
-                else
+                if ((*iter).first == 0) // 同一行，用水平分辨率
+                    alpha = segmentAlphaX;  
+                else                    // 同一列，用垂直分辨率
                     alpha = segmentAlphaY;
 
-                angle = atan2(d2*sin(alpha), (d1 -d2*cos(alpha)));
+                // 设两个点中距离较远的点为 A, 较近的点为 B，计算三角形 OAB 中，AB 和 OA 的夹角
+                // 衡量 AB 之间的距离
+                angle = atan2(d2*sin(alpha), (d1 - d2*cos(alpha)));
 
+                // 如果大于一定阈值则考虑属于同一簇
                 if (angle > segmentTheta){
 
                     queueIndX[queueEndInd] = thisIndX;
@@ -439,9 +456,12 @@ public:
 
         // check if this segment is valid
         bool feasibleSegment = false;
+
+        // 只考虑点数大于 30 的部分
         if (allPushedIndSize >= 30)
             feasibleSegment = true;
         else if (allPushedIndSize >= segmentValidPointNum){
+            // 否则如果包括超过一定行数的部分也可以算作一个合理的簇
             int lineCount = 0;
             for (size_t i = 0; i < N_SCAN; ++i)
                 if (lineCountFlag[i] == true)
