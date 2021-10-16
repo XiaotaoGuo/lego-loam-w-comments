@@ -271,6 +271,7 @@ public:
         //  0, initial value, after validation, means not ground
         //  1, ground
         for (size_t j = 0; j < Horizon_SCAN; ++j){
+            /// 只考虑最下面的若干根线的激光点
             for (size_t i = 0; i < groundScanInd; ++i){
 
                 lowerInd = j + ( i )*Horizon_SCAN;
@@ -283,7 +284,7 @@ public:
                     continue;
                 }
 
-                // 计算每一列相邻两个点连线的俯仰角，如果小于 10° 则认为是一个平面
+                // 计算每一列相邻两个点连线的俯仰角，如果小于 10° 则认为是地面，（如果时理想水平面应该是 0）
                 diffX = fullCloud->points[upperInd].x - fullCloud->points[lowerInd].x;
                 diffY = fullCloud->points[upperInd].y - fullCloud->points[lowerInd].y;
                 diffZ = fullCloud->points[upperInd].z - fullCloud->points[lowerInd].z;
@@ -461,7 +462,7 @@ public:
         if (allPushedIndSize >= 30)
             feasibleSegment = true;
         else if (allPushedIndSize >= segmentValidPointNum){
-            // 否则如果包括超过一定行数的部分也可以算作一个合理的簇
+            // 否则如果包括超过一定行数的部分也可以算作一个合理的簇（因为垂直分辨率比较高，所以虽然点数较少，物体的体积也不算小）
             int lineCount = 0;
             for (size_t i = 0; i < N_SCAN; ++i)
                 if (lineCountFlag[i] == true)
