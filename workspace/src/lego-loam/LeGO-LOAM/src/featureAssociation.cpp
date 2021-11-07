@@ -59,8 +59,8 @@ private:
     pcl::PointCloud<PointType>::Ptr surfPointsFlat;             ///< 质量较好的平面点点云
     pcl::PointCloud<PointType>::Ptr surfPointsLessFlat;         ///< 质量一般的平面点点云
 
-    pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScan;     ///< TODO
-    pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScanDS;   ///< TODO
+    pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScan;     ///< 质量一般的平面点云（包含大部分点）
+    pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScanDS;   ///< 下采样后的 surfPointsLessFlatScan
 
     pcl::VoxelGrid<PointType> downSizeFilter;       ///< 下采样滤波器
 
@@ -173,8 +173,8 @@ private:
 
     pcl::PointCloud<PointType>::Ptr laserCloudCornerLast;   ///< 上一时刻角点
     pcl::PointCloud<PointType>::Ptr laserCloudSurfLast;     ///< 上一时刻平面点
-    pcl::PointCloud<PointType>::Ptr laserCloudOri;          ///< TODO
-    pcl::PointCloud<PointType>::Ptr coeffSel;               ///< TODO
+    pcl::PointCloud<PointType>::Ptr laserCloudOri;          ///< 特种匹配中的被选择的原始点
+    pcl::PointCloud<PointType>::Ptr coeffSel;               ///< 被选择的点的协方差
 
     ///< 上一时刻角点的和平面点的 KD 树
     pcl::KdTreeFLANN<PointType>::Ptr kdtreeCornerLast;
@@ -184,7 +184,7 @@ private:
     std::vector<int> pointSearchInd;
     std::vector<float> pointSearchSqDis;
 
-    ///< TODO
+    ///< 用于作为特征匹配时每个点搜索用的临时变量
     PointType pointOri, pointSel, tripod1, tripod2, tripod3, pointProj, coeff;
 
     ///< 里程计信息
