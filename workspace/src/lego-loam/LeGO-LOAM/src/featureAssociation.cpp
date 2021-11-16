@@ -461,7 +461,7 @@ public:
         tf::quaternionMsgToTF(imuIn->orientation, orientation);
         tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
         
-        // 将 IMU 原始加速度去掉重力分量作为测量值
+        // 将 IMU 原始加速度去掉重力分量作为测量值，旋转至参考坐标系下
         float accX = imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.81;
         float accY = imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81;
         float accZ = imuIn->linear_acceleration.x + sin(pitch) * 9.81;
@@ -526,8 +526,8 @@ public:
         for (int i = 0; i < cloudSize; i++) {
             
             /**
-             * VLP 坐标系：左(x), 前(y), 上(z)
-             * 旋转坐标系至：前(x)，上(y)，左(x)
+             * VLP 坐标系：右(x), 前(y), 上(z)
+             * 旋转坐标系至：前(x)，上(y)，右(z)
              */
             point.x = segmentedCloud->points[i].y;
             point.y = segmentedCloud->points[i].z;
